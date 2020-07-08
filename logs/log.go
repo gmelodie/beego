@@ -34,6 +34,7 @@
 package logs
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -268,8 +269,9 @@ func (bl *BeeLogger) writeMsg(logLevel int, msg string, v ...interface{}) error 
 	if len(v) > 0 {
 		msg = fmt.Sprintf(msg, v...)
 	}
-
 	msg = bl.prefix + " " + msg
+
+	logFormat := "APACHE_FORMAT"
 
 	when := time.Now()
 	if bl.enableFuncCallDepth {
@@ -279,7 +281,36 @@ func (bl *BeeLogger) writeMsg(logLevel int, msg string, v ...interface{}) error 
 			line = 0
 		}
 		_, filename := path.Split(file)
-		msg = "[" + filename + ":" + strconv.Itoa(line) + "] " + msg
+
+		tempStruct := &AccessLogRecord{}
+		jsonDecodeError := json.Unmarshal([]byte(msg), tempStruct)
+		if jsonDecodeError == nil {
+			logFormat = "JSON_FORMAT"
+		}
+
+		switch logFormat {
+		case apacheFormat:
+			msg = "[" + filename + ":" + strconv.Itoa(line) + "] " + msg
+		case jsonFormat:
+			fallthrough
+		default:
+			if jsonDecodeError != nil {
+				if !strings.Contains(jsonDecodeError.Error(), "invalid character") {
+					// This catches non JSON formatted strings being sent in, if not this
+					// invalid character error which is fine which happens with the first few
+					// log messages then something else went wrong
+					log.Fatal(jsonDecodeError)
+				}
+			}
+
+			tempStruct.LineReference = filename + ":" + strconv.Itoa(line)
+			jsonString, err := tempStruct.json()
+			if err != nil {
+				log.Fatal(err)
+			}
+			msg = string(jsonString)
+		}
+
 	}
 
 	//set level info in front of filename info
@@ -301,7 +332,15 @@ func (bl *BeeLogger) writeMsg(logLevel int, msg string, v ...interface{}) error 
 			logMsgPool.Put(lm)
 		}
 	} else {
-		bl.writeToLoggers(when, msg, logLevel)
+		switch logFormat {
+		case apacheFormat:
+			bl.writeToLoggers(when, msg, logLevel)
+		case jsonFormat:
+			fallthrough
+		default:
+			bl.writeToLoggers(time.Time{}, msg, logLevel)
+		}
+
 	}
 	return nil
 }
