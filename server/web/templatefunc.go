@@ -54,7 +54,6 @@ func Substr(s string, start, length int) string {
 
 // HTML2str returns escaping text convert from html.
 func HTML2str(html string) string {
-
 	re := regexp.MustCompile(`\<[\S\s]+?\>`)
 	html = re.ReplaceAllStringFunc(html, strings.ToLower)
 
@@ -255,7 +254,6 @@ func URLFor(endpoint string, values ...interface{}) string {
 
 // AssetsJs returns script tag with src string.
 func AssetsJs(text string) template.HTML {
-
 	text = "<script src=\"" + text + "\"></script>"
 
 	return template.HTML(text)
@@ -263,7 +261,6 @@ func AssetsJs(text string) template.HTML {
 
 // AssetsCSS returns stylesheet link tag with src string.
 func AssetsCSS(text string) template.HTML {
-
 	text = "<link href=\"" + text + "\" rel=\"stylesheet\" />"
 
 	return template.HTML(text)
@@ -423,8 +420,10 @@ func ParseForm(form url.Values, obj interface{}) error {
 	return parseFormToStruct(form, objT, objV)
 }
 
-var sliceOfInts = reflect.TypeOf([]int(nil))
-var sliceOfStrings = reflect.TypeOf([]string(nil))
+var (
+	sliceOfInts    = reflect.TypeOf([]int(nil))
+	sliceOfStrings = reflect.TypeOf([]string(nil))
+)
 
 var unKind = map[reflect.Kind]bool{
 	reflect.Uintptr:       true,
@@ -504,7 +503,7 @@ func isValidForInput(fType string) bool {
 }
 
 // parseFormTag takes the stuct-tag of a StructField and parses the `form` value.
-// returned are the form label, name-property, type and wether the field should be ignored.
+// returned are the form label, name-property, type and whether the field should be ignored.
 func parseFormTag(fieldT reflect.StructField) (label, name, fType string, id string, class string, ignored bool, required bool) {
 	tags := strings.Split(fieldT.Tag.Get("form"), ",")
 	label = fieldT.Name + ": "
@@ -607,10 +606,23 @@ func eq(arg1 interface{}, arg2 ...interface{}) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if k1 != k2 {
-			return false, errBadComparison
-		}
 		truth := false
+		if k1 != k2 {
+			// Special case: Can compare integer values regardless of type's sign.
+			switch {
+			case k1 == intKind && k2 == uintKind:
+				truth = v1.Int() >= 0 && uint64(v1.Int()) == v2.Uint()
+			case k1 == uintKind && k2 == intKind:
+				truth = v2.Int() >= 0 && v1.Uint() == uint64(v2.Int())
+			default:
+				return false, errBadComparison
+			}
+			if truth {
+				return true, nil
+			} else {
+				return false, nil
+			}
+		}
 		switch k1 {
 		case boolKind:
 			truth = v1.Bool() == v2.Bool()
@@ -653,23 +665,32 @@ func lt(arg1, arg2 interface{}) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if k1 != k2 {
-		return false, errBadComparison
-	}
 	truth := false
-	switch k1 {
-	case boolKind, complexKind:
-		return false, errBadComparisonType
-	case floatKind:
-		truth = v1.Float() < v2.Float()
-	case intKind:
-		truth = v1.Int() < v2.Int()
-	case stringKind:
-		truth = v1.String() < v2.String()
-	case uintKind:
-		truth = v1.Uint() < v2.Uint()
-	default:
-		panic("invalid kind")
+	if k1 != k2 {
+		// Special case: Can compare integer values regardless of type's sign.
+		switch {
+		case k1 == intKind && k2 == uintKind:
+			truth = v1.Int() < 0 || uint64(v1.Int()) < v2.Uint()
+		case k1 == uintKind && k2 == intKind:
+			truth = v2.Int() >= 0 && v1.Uint() < uint64(v2.Int())
+		default:
+			return false, errBadComparison
+		}
+	} else {
+		switch k1 {
+		case boolKind, complexKind:
+			return false, errBadComparisonType
+		case floatKind:
+			truth = v1.Float() < v2.Float()
+		case intKind:
+			truth = v1.Int() < v2.Int()
+		case stringKind:
+			truth = v1.String() < v2.String()
+		case uintKind:
+			truth = v1.Uint() < v2.Uint()
+		default:
+			return false, errBadComparisonType
+		}
 	}
 	return truth, nil
 }

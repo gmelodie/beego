@@ -39,12 +39,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/beego/x2j"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/beego/beego/v2/core/config"
 	"github.com/beego/beego/v2/core/logs"
-
-	"github.com/beego/x2j"
 )
 
 // Config is a xml config parser and implements Config interface.
@@ -103,7 +102,6 @@ func (c *ConfigContainer) Sub(key string) (config.Configer, error) {
 	return &ConfigContainer{
 		data: sub,
 	}, nil
-
 }
 
 func (c *ConfigContainer) sub(key string) (map[string]interface{}, error) {
@@ -171,7 +169,6 @@ func (c *ConfigContainer) DefaultInt64(key string, defaultVal int64) int64 {
 		return defaultVal
 	}
 	return v
-
 }
 
 // Float returns the float value for a given key.

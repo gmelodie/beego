@@ -31,11 +31,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/beego/beego/v2/client/orm/clauses/order_clause"
-
-	"github.com/beego/beego/v2/client/orm/hints"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/beego/beego/v2/client/orm/clauses/order_clause"
+	"github.com/beego/beego/v2/client/orm/hints"
 )
 
 var _ = os.PathSeparator
@@ -159,6 +158,7 @@ func throwFail(t *testing.T, err error, args ...interface{}) {
 	}
 }
 
+// deprecated using assert.XXX
 func throwFailNow(t *testing.T, err error, args ...interface{}) {
 	if err != nil {
 		con := fmt.Sprintf("\t\nError: %s\n%s\n", err.Error(), getCaller(2))
@@ -308,7 +308,6 @@ func TestDataTypes(t *testing.T) {
 		case "DateTime":
 		case "Time":
 			assert.True(t, vu.(time.Time).In(DefaultTimeLoc).Sub(value.(time.Time).In(DefaultTimeLoc)) <= time.Second)
-			break
 		default:
 			assert.Equal(t, value, vu)
 		}
@@ -842,7 +841,6 @@ The program—and web server—godoc processes Go source files to extract docume
 			throwFailNow(t, AssertIs(nums, num))
 		}
 	}
-
 }
 
 func TestCustomField(t *testing.T) {
@@ -1235,7 +1233,6 @@ func TestOne(t *testing.T) {
 
 	err = qs.Filter("user_name", "nothing").One(&user)
 	throwFail(t, AssertIs(err, ErrNoRows))
-
 }
 
 func TestValues(t *testing.T) {
@@ -1285,8 +1282,8 @@ func TestValuesList(t *testing.T) {
 	throwFail(t, err)
 	throwFail(t, AssertIs(num, 3))
 	if num == 3 {
-		throwFail(t, AssertIs(list[0][1], "slene")) //username
-		throwFail(t, AssertIs(list[2][10], nil))    //profile
+		throwFail(t, AssertIs(list[0][1], "slene")) // username
+		throwFail(t, AssertIs(list[2][10], nil))    // profile
 	}
 
 	num, err = qs.OrderBy("Id").ValuesList(&list, "UserName", "Profile__Age")
@@ -1844,18 +1841,11 @@ func TestRawQueryRow(t *testing.T) {
 		switch col {
 		case "id":
 			throwFail(t, AssertIs(id, 1))
-			break
-		case "time":
+		case "time", "datetime":
 			v = v.(time.Time).In(DefaultTimeLoc)
 			value := dataValues[col].(time.Time).In(DefaultTimeLoc)
 			assert.True(t, v.(time.Time).Sub(value) <= time.Second)
-			break
 		case "date":
-		case "datetime":
-			v = v.(time.Time).In(DefaultTimeLoc)
-			value := dataValues[col].(time.Time).In(DefaultTimeLoc)
-			assert.True(t, v.(time.Time).Sub(value) <= time.Second)
-			break
 		default:
 			throwFail(t, AssertIs(v, dataValues[col]))
 		}
@@ -1949,7 +1939,6 @@ func TestQueryRows(t *testing.T) {
 		case "Date":
 		case "DateTime":
 			assert.True(t, vu.(time.Time).In(DefaultTimeLoc).Sub(value.(time.Time).In(DefaultTimeLoc)) <= time.Second)
-			break
 		default:
 			assert.Equal(t, value, vu)
 		}
@@ -1973,7 +1962,6 @@ func TestQueryRows(t *testing.T) {
 		case "Date":
 		case "DateTime":
 			assert.True(t, vu.(time.Time).In(DefaultTimeLoc).Sub(value.(time.Time).In(DefaultTimeLoc)) <= time.Second)
-			break
 		default:
 			assert.Equal(t, value, vu)
 		}
@@ -2224,7 +2212,7 @@ func TestTransaction(t *testing.T) {
 	to, err := o.Begin()
 	throwFail(t, err)
 
-	var names = []string{"1", "2", "3"}
+	names := []string{"1", "2", "3"}
 
 	var tag Tag
 	tag.Name = names[0]
@@ -2248,27 +2236,62 @@ func TestTransaction(t *testing.T) {
 	}
 
 	err = to.Rollback()
-	throwFail(t, err)
-
+	assert.Nil(t, err)
 	num, err = o.QueryTable("tag").Filter("name__in", names).Count()
-	throwFail(t, err)
-	throwFail(t, AssertIs(num, 0))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), num)
 
 	to, err = o.Begin()
-	throwFail(t, err)
+	assert.Nil(t, err)
 
 	tag.Name = "commit"
 	id, err = to.Insert(&tag)
-	throwFail(t, err)
-	throwFail(t, AssertIs(id > 0, true))
+	assert.Nil(t, err)
+	assert.True(t, id > 0)
 
-	to.Commit()
-	throwFail(t, err)
+	err = to.Commit()
+	assert.Nil(t, err)
 
 	num, err = o.QueryTable("tag").Filter("name", "commit").Delete()
-	throwFail(t, err)
-	throwFail(t, AssertIs(num, 1))
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), num)
+}
 
+func TestTxOrmRollbackUnlessCommit(t *testing.T) {
+	o := NewOrm()
+	var tag Tag
+
+	// test not commited and call RollbackUnlessCommit
+	to, err := o.Begin()
+	assert.Nil(t, err)
+	tag.Name = "rollback unless commit"
+	rows, err := to.Insert(&tag)
+	assert.Nil(t, err)
+	assert.True(t, rows > 0)
+	err = to.RollbackUnlessCommit()
+	assert.Nil(t, err)
+	num, err := o.QueryTable("tag").Filter("name", tag.Name).Delete()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), num)
+
+	// test commit and call RollbackUnlessCommit
+
+	to, err = o.Begin()
+	assert.Nil(t, err)
+	tag.Name = "rollback unless commit"
+	rows, err = to.Insert(&tag)
+	assert.Nil(t, err)
+	assert.True(t, rows > 0)
+
+	err = to.Commit()
+	assert.Nil(t, err)
+
+	err = to.RollbackUnlessCommit()
+	assert.Nil(t, err)
+
+	num, err = o.QueryTable("tag").Filter("name", tag.Name).Delete()
+	assert.Nil(t, err)
+	assert.Equal(t, int64(1), num)
 }
 
 func TestTransactionIsolationLevel(t *testing.T) {
@@ -2604,93 +2627,101 @@ func TestIgnoreCaseTag(t *testing.T) {
 
 func TestInsertOrUpdate(t *testing.T) {
 	RegisterModel(new(User))
-	user := User{UserName: "unique_username133", Status: 1, Password: "o"}
-	user1 := User{UserName: "unique_username133", Status: 2, Password: "o"}
-	user2 := User{UserName: "unique_username133", Status: 3, Password: "oo"}
+	userName := "unique_username133"
+	column := "user_name"
+	user := User{UserName: userName, Status: 1, Password: "o"}
+	user1 := User{UserName: userName, Status: 2, Password: "o"}
+	user2 := User{UserName: userName, Status: 3, Password: "oo"}
 	dORM.Insert(&user)
-	test := User{UserName: "unique_username133"}
 	fmt.Println(dORM.Driver().Name())
 	if dORM.Driver().Name() == "sqlite3" {
 		fmt.Println("sqlite3 is nonsupport")
 		return
 	}
-	// test1
-	_, err := dORM.InsertOrUpdate(&user1, "user_name")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
-		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs(user1.Status, test.Status))
-	}
-	// test2
-	_, err = dORM.InsertOrUpdate(&user2, "user_name")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
-		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs(user2.Status, test.Status))
-		throwFailNow(t, AssertIs(user2.Password, strings.TrimSpace(test.Password)))
+
+	specs := []struct {
+		description          string
+		user                 User
+		colConflitAndArgs    []string
+		assertion            func(expected User, actual User)
+		isPostgresCompatible bool
+	}{
+		{
+			description:       "test1",
+			user:              user1,
+			colConflitAndArgs: []string{column},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs(expected.Status, actual.Status))
+			},
+			isPostgresCompatible: true,
+		},
+		{
+			description:       "test2",
+			user:              user2,
+			colConflitAndArgs: []string{column},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs(expected.Status, actual.Status))
+				throwFailNow(t, AssertIs(expected.Password, strings.TrimSpace(actual.Password)))
+			},
+			isPostgresCompatible: true,
+		},
+		{
+			description:       "test3 +",
+			user:              user2,
+			colConflitAndArgs: []string{column, "status=status+1"},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs(expected.Status+1, actual.Status))
+			},
+			isPostgresCompatible: false,
+		},
+		{
+			description:       "test4 -",
+			user:              user2,
+			colConflitAndArgs: []string{column, "status=status-1"},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs((expected.Status+1)-1, actual.Status))
+			},
+			isPostgresCompatible: false,
+		},
+		{
+			description:       "test5 *",
+			user:              user2,
+			colConflitAndArgs: []string{column, "status=status*3"},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs(((expected.Status+1)-1)*3, actual.Status))
+			},
+			isPostgresCompatible: false,
+		},
+		{
+			description:       "test6 /",
+			user:              user2,
+			colConflitAndArgs: []string{column, "Status=Status/3"},
+			assertion: func(expected, actual User) {
+				throwFailNow(t, AssertIs((((expected.Status+1)-1)*3)/3, actual.Status))
+			},
+			isPostgresCompatible: false,
+		},
 	}
 
-	// postgres ON CONFLICT DO UPDATE SET can`t use colu=colu+values
-	if IsPostgres {
-		return
-	}
-	// test3 +
-	_, err = dORM.InsertOrUpdate(&user2, "user_name", "status=status+1")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
+	for _, spec := range specs {
+		// postgres ON CONFLICT DO UPDATE SET can`t use colu=colu+values
+		if IsPostgres && !spec.isPostgresCompatible {
+			continue
 		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs(user2.Status+1, test.Status))
-	}
-	// test4 -
-	_, err = dORM.InsertOrUpdate(&user2, "user_name", "status=status-1")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
+
+		_, err := dORM.InsertOrUpdate(&spec.user, spec.colConflitAndArgs...)
+		if err != nil {
+			fmt.Println(err)
+			if !(err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego") {
+				throwFailNow(t, err)
+			}
+			continue
 		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs((user2.Status+1)-1, test.Status))
-	}
-	// test5 *
-	_, err = dORM.InsertOrUpdate(&user2, "user_name", "status=status*3")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
-		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs(((user2.Status+1)-1)*3, test.Status))
-	}
-	// test6 /
-	_, err = dORM.InsertOrUpdate(&user2, "user_name", "Status=Status/3")
-	if err != nil {
-		fmt.Println(err)
-		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
-		} else {
-			throwFailNow(t, err)
-		}
-	} else {
-		dORM.Read(&test, "user_name")
-		throwFailNow(t, AssertIs((((user2.Status+1)-1)*3)/3, test.Status))
+
+		test := User{UserName: userName}
+		err = dORM.Read(&test, column)
+		throwFailNow(t, AssertIs(err, nil))
+		spec.assertion(spec.user, test)
 	}
 }
 
@@ -2724,7 +2755,9 @@ func TestStrPkInsert(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 		if err.Error() == "postgres version must 9.5 or higher" || err.Error() == "`sqlite3` nonsupport InsertOrUpdate in beego" {
+			return
 		} else if err == ErrLastInsertIdUnavailable {
+			return
 		} else {
 			throwFailNow(t, err)
 		}

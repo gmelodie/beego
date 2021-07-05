@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/beego/beego/v2/core/logs"
-
 	"github.com/beego/beego/v2/core/utils"
 	beecontext "github.com/beego/beego/v2/server/web/context"
 	"github.com/beego/beego/v2/server/web/context/param"
@@ -68,14 +67,9 @@ var (
 		"LOCK":      true,
 		"UNLOCK":    true,
 	}
-	// these beego.Controller's methods shouldn't reflect to AutoRouter
-	exceptMethod = []string{"Init", "Prepare", "Finish", "Render", "RenderString",
-		"RenderBytes", "Redirect", "Abort", "StopRun", "UrlFor", "ServeJSON", "ServeJSONP",
-		"ServeYAML", "ServeXML", "Input", "ParseForm", "GetString", "GetStrings", "GetInt", "GetBool",
-		"GetFloat", "GetFile", "SaveToFile", "StartSession", "SetSession", "GetSession",
-		"DelSession", "SessionRegenerateID", "DestroySession", "IsAjax", "GetSecureCookie",
-		"SetSecureCookie", "XsrfToken", "CheckXsrfCookie", "XsrfFormHtml",
-		"GetControllerAndAction", "ServeFormatted"}
+	// these web.Controller's methods shouldn't reflect to AutoRouter
+	// see registerControllerExceptMethods
+	exceptMethod = initExceptMethod()
 
 	urlPlaceholder = "{{placeholder}}"
 	// DefaultAccessLogFilter will skip the accesslog if return true
@@ -88,8 +82,7 @@ type FilterHandler interface {
 }
 
 // default log filter static file will not show
-type logFilter struct {
-}
+type logFilter struct{}
 
 func (l *logFilter) Filter(ctx *beecontext.Context) bool {
 	requestPath := path.Clean(ctx.Request.URL.Path)
@@ -107,6 +100,17 @@ func (l *logFilter) Filter(ctx *beecontext.Context) bool {
 // ExceptMethodAppend to append a slice's value into "exceptMethod", for controller's methods shouldn't reflect to AutoRouter
 func ExceptMethodAppend(action string) {
 	exceptMethod = append(exceptMethod, action)
+}
+
+func initExceptMethod() []string {
+	res := make([]string, 0, 32)
+	c := &Controller{}
+	t := reflect.TypeOf(c)
+	for i := 0; i < t.NumMethod(); i++ {
+		m := t.Method(i)
+		res = append(res, m.Name)
+	}
+	return res
 }
 
 // ControllerInfo holds information about the controller.
@@ -725,20 +729,30 @@ func (p *ControllerRegister) AddAutoPrefix(prefix string, c ControllerInterface)
 	ct := reflect.Indirect(reflectVal).Type()
 	controllerName := strings.TrimSuffix(ct.Name(), "Controller")
 	for i := 0; i < rt.NumMethod(); i++ {
-		if !utils.InSlice(rt.Method(i).Name, exceptMethod) {
-			pattern := path.Join(prefix, strings.ToLower(controllerName), strings.ToLower(rt.Method(i).Name), "*")
-			patternInit := path.Join(prefix, controllerName, rt.Method(i).Name, "*")
-			patternFix := path.Join(prefix, strings.ToLower(controllerName), strings.ToLower(rt.Method(i).Name))
-			patternFixInit := path.Join(prefix, controllerName, rt.Method(i).Name)
+		methodName := rt.Method(i).Name
+		if !utils.InSlice(methodName, exceptMethod) {
+			p.addAutoPrefixMethod(prefix, controllerName, methodName, ct)
+		}
+	}
+}
 
-			route := p.createBeegoRouter(ct, pattern)
-			route.methods = map[string]string{"*": rt.Method(i).Name}
-			for m := range HTTPMETHOD {
-				p.addToRouter(m, pattern, route)
-				p.addToRouter(m, patternInit, route)
-				p.addToRouter(m, patternFix, route)
-				p.addToRouter(m, patternFixInit, route)
-			}
+func (p *ControllerRegister) addAutoPrefixMethod(prefix, controllerName, methodName string, ctrl reflect.Type) {
+	pattern := path.Join(prefix, strings.ToLower(controllerName), strings.ToLower(methodName), "*")
+	patternInit := path.Join(prefix, controllerName, methodName, "*")
+	patternFix := path.Join(prefix, strings.ToLower(controllerName), strings.ToLower(methodName))
+	patternFixInit := path.Join(prefix, controllerName, methodName)
+
+	route := p.createBeegoRouter(ctrl, pattern)
+	route.methods = map[string]string{"*": methodName}
+	for m := range HTTPMETHOD {
+
+		p.addToRouter(m, pattern, route)
+
+		// only case sensitive, we add three more routes
+		if p.cfg.RouterCaseSensitive {
+			p.addToRouter(m, patternInit, route)
+			p.addToRouter(m, patternFix, route)
+			p.addToRouter(m, patternFixInit, route)
 		}
 	}
 }
@@ -765,7 +779,6 @@ func (p *ControllerRegister) InsertFilter(pattern string, pos int, filter Filter
 //     }
 // }
 func (p *ControllerRegister) InsertFilterChain(pattern string, chain FilterChain, opts ...FilterOpt) {
-
 	opts = append(opts, WithCaseSensitive(p.cfg.RouterCaseSensitive))
 	p.filterChains = append(p.filterChains, filterChainConfig{
 		pattern: pattern,
@@ -942,7 +955,6 @@ func (p *ControllerRegister) execFilter(context *beecontext.Context, urlPath str
 
 // Implement http.Handler interface.
 func (p *ControllerRegister) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-
 	ctx := p.GetContext()
 
 	ctx.Reset(rw, r)
@@ -1280,7 +1292,7 @@ func (p *ControllerRegister) handleParamResponse(context *beecontext.Context, ex
 
 // FindRouter Find Router info for URL
 func (p *ControllerRegister) FindRouter(context *beecontext.Context) (routerInfo *ControllerInfo, isFind bool) {
-	var urlPath = context.Input.URL()
+	urlPath := context.Input.URL()
 	if !p.cfg.RouterCaseSensitive {
 		urlPath = strings.ToLower(urlPath)
 	}

@@ -70,14 +70,10 @@ var provides = make(map[string]Provider)
 var SLogger = NewSessionLog(os.Stderr)
 
 // Register makes a session provide available by the provided name.
-// If Register is called twice with the same name or if driver is nil,
-// it panics.
+// If provider is nil, it panic
 func Register(name string, provide Provider) {
 	if provide == nil {
 		panic("session: Register provide is nil")
-	}
-	if _, dup := provides[name]; dup {
-		panic("session: Register called twice for provider " + name)
 	}
 	provides[name] = provide
 }
@@ -256,7 +252,8 @@ func (manager *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 	manager.provider.SessionDestroy(nil, sid)
 	if manager.config.EnableSetCookie {
 		expiration := time.Now()
-		cookie = &http.Cookie{Name: manager.config.CookieName,
+		cookie = &http.Cookie{
+			Name:     manager.config.CookieName,
 			Path:     "/",
 			HttpOnly: !manager.config.DisableHTTPOnly,
 			Expires:  expiration,
@@ -298,7 +295,8 @@ func (manager *Manager) SessionRegenerateID(w http.ResponseWriter, r *http.Reque
 		if err != nil {
 			return nil, err
 		}
-		cookie = &http.Cookie{Name: manager.config.CookieName,
+		cookie = &http.Cookie{
+			Name:     manager.config.CookieName,
 			Value:    url.QueryEscape(sid),
 			Path:     "/",
 			HttpOnly: !manager.config.DisableHTTPOnly,

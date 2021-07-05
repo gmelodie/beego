@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/beego/beego/v2/core/logs"
-
 	"github.com/beego/beego/v2/server/web/context"
 )
 
@@ -35,8 +34,7 @@ func (ptc *PrefixTestController) PrefixList() {
 	ptc.Ctx.Output.Body([]byte("i am list in prefix test"))
 }
 
-type TestControllerWithInterface struct {
-}
+type TestControllerWithInterface struct{}
 
 func (m TestControllerWithInterface) Ping() {
 	fmt.Println("pong")
@@ -137,10 +135,12 @@ func TestUrlFor(t *testing.T) {
 func TestUrlFor3(t *testing.T) {
 	handler := NewControllerRegister()
 	handler.AddAuto(&TestController{})
-	if a := handler.URLFor("TestController.Myext"); a != "/test/myext" && a != "/Test/Myext" {
+	a := handler.URLFor("TestController.Myext")
+	if a != "/test/myext" && a != "/Test/Myext" {
 		t.Errorf("TestController.Myext must equal to /test/myext, but get " + a)
 	}
-	if a := handler.URLFor("TestController.GetURL"); a != "/test/geturl" && a != "/Test/GetURL" {
+	a = handler.URLFor("TestController.GetURL")
+	if a != "/test/geturl" && a != "/Test/GetURL" {
 		t.Errorf("TestController.GetURL must equal to /test/geturl, but get " + a)
 	}
 }
@@ -247,7 +247,6 @@ func TestAutoExtFunc(t *testing.T) {
 }
 
 func TestEscape(t *testing.T) {
-
 	r, _ := http.NewRequest("GET", "/search/%E4%BD%A0%E5%A5%BD", nil)
 	w := httptest.NewRecorder()
 
@@ -264,7 +263,6 @@ func TestEscape(t *testing.T) {
 }
 
 func TestRouteOk(t *testing.T) {
-
 	r, _ := http.NewRequest("GET", "/person/anderson/thomas?learn=kungfu", nil)
 	w := httptest.NewRecorder()
 
@@ -278,7 +276,6 @@ func TestRouteOk(t *testing.T) {
 }
 
 func TestManyRoute(t *testing.T) {
-
 	r, _ := http.NewRequest("GET", "/beego32-12.html", nil)
 	w := httptest.NewRecorder()
 
@@ -295,7 +292,6 @@ func TestManyRoute(t *testing.T) {
 
 // Test for issue #1669
 func TestEmptyResponse(t *testing.T) {
-
 	r, _ := http.NewRequest("GET", "/beego-empty.html", nil)
 	w := httptest.NewRecorder()
 
@@ -838,7 +834,6 @@ func TestRouterSessionSet(t *testing.T) {
 	if w.Header().Get("Set-Cookie") == "" {
 		t.Errorf("TestRotuerSessionSet failed")
 	}
-
 }
 
 func TestRouterRouterGet(t *testing.T) {
@@ -1018,7 +1013,7 @@ func TestRouterAddRouterMethodPanicInvalidMethod(t *testing.T) {
 	message := "not support http method: " + strings.ToUpper(method)
 	defer func() {
 		err := recover()
-		if err != nil { //产生了panic异常
+		if err != nil { // 产生了panic异常
 			errStr, ok := err.(string)
 			if ok && errStr == message {
 				return
@@ -1036,7 +1031,7 @@ func TestRouterAddRouterMethodPanicNotAMethod(t *testing.T) {
 	message := "not a method"
 	defer func() {
 		err := recover()
-		if err != nil { //产生了panic异常
+		if err != nil { // 产生了panic异常
 			errStr, ok := err.(string)
 			if ok && errStr == message {
 				return
@@ -1054,7 +1049,7 @@ func TestRouterAddRouterMethodPanicNotPublicMethod(t *testing.T) {
 	message := "ping is not a public method"
 	defer func() {
 		err := recover()
-		if err != nil { //产生了panic异常
+		if err != nil { // 产生了panic异常
 			errStr, ok := err.(string)
 			if ok && errStr == message {
 				return
@@ -1072,7 +1067,7 @@ func TestRouterAddRouterMethodPanicNotImplementInterface(t *testing.T) {
 	message := "web.TestControllerWithInterface is not implemented ControllerInterface"
 	defer func() {
 		err := recover()
-		if err != nil { //产生了panic异常
+		if err != nil { // 产生了panic异常
 			errStr, ok := err.(string)
 			if ok && errStr == message {
 				return
@@ -1090,7 +1085,7 @@ func TestRouterAddRouterPointerMethodPanicNotImplementInterface(t *testing.T) {
 	message := "web.TestControllerWithInterface is not implemented ControllerInterface"
 	defer func() {
 		err := recover()
-		if err != nil { //产生了panic异常
+		if err != nil { // 产生了panic异常
 			errStr, ok := err.(string)
 			if ok && errStr == message {
 				return

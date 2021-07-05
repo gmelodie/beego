@@ -15,7 +15,6 @@ import (
 )
 
 func TestSsdbcacheCache(t *testing.T) {
-
 	ssdbAddr := os.Getenv("SSDB_ADDR")
 	if ssdbAddr == "" {
 		ssdbAddr = "127.0.0.1:8888"
@@ -30,7 +29,7 @@ func TestSsdbcacheCache(t *testing.T) {
 	timeoutDuration := 3 * time.Second
 	// timeoutDuration := -10*time.Second   if timeoutDuration is negtive,it means permanent
 
-	assert.Nil(t,  ssdb.Put(context.Background(), "ssdb", "ssdb", timeoutDuration))
+	assert.Nil(t, ssdb.Put(context.Background(), "ssdb", "ssdb", timeoutDuration))
 
 	res, _ = ssdb.IsExist(context.Background(), "ssdb")
 	assert.True(t, res)
@@ -87,7 +86,7 @@ func TestSsdbcacheCache(t *testing.T) {
 	assert.Equal(t, 2, len(vv))
 
 	assert.Equal(t, "ssdb", vv[0])
-	assert.Nil(t,  vv[1])
+	assert.Nil(t, vv[1])
 
 	assert.NotNil(t, err)
 	assert.True(t, strings.Contains(err.Error(), "key not exist"))

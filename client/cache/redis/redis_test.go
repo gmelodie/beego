@@ -28,7 +28,6 @@ import (
 )
 
 func TestRedisCache(t *testing.T) {
-
 	redisAddr := os.Getenv("REDIS_ADDR")
 	if redisAddr == "" {
 		redisAddr = "127.0.0.1:6379"
@@ -40,7 +39,6 @@ func TestRedisCache(t *testing.T) {
 
 	assert.Nil(t, bm.Put(context.Background(), "astaxie", 1, timeoutDuration))
 
-
 	res, _ := bm.IsExist(context.Background(), "astaxie")
 	assert.True(t, res)
 
@@ -50,7 +48,6 @@ func TestRedisCache(t *testing.T) {
 	assert.False(t, res)
 
 	assert.Nil(t, bm.Put(context.Background(), "astaxie", 1, timeoutDuration))
-
 
 	val, _ := bm.Get(context.Background(), "astaxie")
 	v, _ := redis.Int(val, err)
@@ -105,7 +102,7 @@ func TestRedisCache(t *testing.T) {
 	assert.Nil(t, bm.ClearAll(context.Background()))
 }
 
-func TestCache_Scan(t *testing.T) {
+func TestCacheScan(t *testing.T) {
 	timeoutDuration := 10 * time.Second
 
 	addr := os.Getenv("REDIS_ADDR")

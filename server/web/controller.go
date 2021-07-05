@@ -17,6 +17,8 @@ package web
 import (
 	"bytes"
 	context2 "context"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"html/template"
@@ -28,11 +30,14 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
-	"github.com/beego/beego/v2/server/web/session"
+	"github.com/gogo/protobuf/proto"
+	"gopkg.in/yaml.v2"
 
 	"github.com/beego/beego/v2/server/web/context"
 	"github.com/beego/beego/v2/server/web/context/param"
+	"github.com/beego/beego/v2/server/web/session"
 )
 
 var (
@@ -40,7 +45,20 @@ var (
 	ErrAbort = errors.New("user stop run")
 	// GlobalControllerRouter store comments with controller. pkgpath+controller:comments
 	GlobalControllerRouter = make(map[string][]ControllerComments)
+	copyBufferPool         sync.Pool
 )
+
+const (
+	bytePerKb    = 1024
+	copyBufferKb = 32
+	filePerm     = 0o666
+)
+
+func init() {
+	copyBufferPool.New = func() interface{} {
+		return make([]byte, bytePerKb*copyBufferKb)
+	}
+}
 
 // ControllerFilter store the filter for controller
 type ControllerFilter struct {
@@ -226,6 +244,51 @@ func (c *Controller) HandlerFunc(fnname string) bool {
 // URLMapping register the internal Controller router.
 func (c *Controller) URLMapping() {}
 
+func (c *Controller) Bind(obj interface{}) error {
+	ct, exist := c.Ctx.Request.Header["Content-Type"]
+	if !exist || len(ct) == 0 {
+		return c.BindJson(obj)
+	}
+	i, l := 0, len(ct[0])
+	for i < l && ct[0][i] != ';' {
+		i++
+	}
+	switch ct[0][0:i] {
+	case "application/json":
+		return c.BindJson(obj)
+	case "application/xml", "text/xml":
+		return c.BindXML(obj)
+	case "application/x-www-form-urlencoded":
+		return c.BindForm(obj)
+	case "application/x-protobuf":
+		return c.BindProtobuf(obj)
+	case "application/x-yaml":
+		return c.BindYAML(obj)
+	default:
+		return errors.New("Unsupported Content-Type:" + ct[0])
+	}
+}
+
+func (c *Controller) BindYAML(obj interface{}) error {
+	return yaml.Unmarshal(c.Ctx.Input.RequestBody, obj)
+}
+
+func (c *Controller) BindForm(obj interface{}) error {
+	return c.ParseForm(obj)
+}
+
+func (c *Controller) BindJson(obj interface{}) error {
+	return json.Unmarshal(c.Ctx.Input.RequestBody, obj)
+}
+
+func (c *Controller) BindProtobuf(obj interface{}) error {
+	return proto.Unmarshal(c.Ctx.Input.RequestBody, obj.(proto.Message))
+}
+
+func (c *Controller) BindXML(obj interface{}) error {
+	return xml.Unmarshal(c.Ctx.Input.RequestBody, obj)
+}
+
 // Mapping the method to function
 func (c *Controller) Mapping(method string, fn func()) {
 	c.methodMapping[method] = fn
@@ -348,9 +411,9 @@ func (c *Controller) Abort(code string) {
 
 // CustomAbort stops controller handler and show the error data, it's similar Aborts, but support status code and body.
 func (c *Controller) CustomAbort(status int, body string) {
+	c.Ctx.Output.Status = status
 	// first panic from ErrorMaps, it is user defined error functions.
 	if _, ok := ErrorMaps[body]; ok {
-		c.Ctx.Output.Status = status
 		panic(body)
 	}
 	// last panic user string
@@ -374,6 +437,23 @@ func (c *Controller) URLFor(endpoint string, values ...interface{}) string {
 		return URLFor(reflect.Indirect(reflect.ValueOf(c.AppController)).Type().Name()+endpoint, values...)
 	}
 	return URLFor(endpoint, values...)
+}
+
+// Resp sends response based on the Accept Header
+// By default response will be in JSON
+func (c *Controller) Resp(data interface{}) error {
+	accept := c.Ctx.Input.Header("Accept")
+	switch accept {
+	case context.ApplicationYAML:
+		c.Data["yaml"] = data
+		return c.ServeYAML()
+	case context.ApplicationXML, context.TextXML:
+		c.Data["xml"] = data
+		return c.ServeXML()
+	default:
+		c.Data["json"] = data
+		return c.ServeJSON()
+	}
 }
 
 // ServeJSON sends a json response with encoding charset.
@@ -605,19 +685,31 @@ func (c *Controller) GetFiles(key string) ([]*multipart.FileHeader, error) {
 
 // SaveToFile saves uploaded file to new path.
 // it only operates the first one of mutil-upload form file field.
-func (c *Controller) SaveToFile(fromfile, tofile string) error {
-	file, _, err := c.Ctx.Request.FormFile(fromfile)
+func (c *Controller) SaveToFile(fromFile, toFile string) error {
+	buf := copyBufferPool.Get().([]byte)
+	defer copyBufferPool.Put(buf)
+	return c.SaveToFileWithBuffer(fromFile, toFile, buf)
+}
+
+type onlyWriter struct {
+	io.Writer
+}
+
+func (c *Controller) SaveToFileWithBuffer(fromFile string, toFile string, buf []byte) error {
+	src, _, err := c.Ctx.Request.FormFile(fromFile)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	f, err := os.OpenFile(tofile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	defer src.Close()
+
+	dst, err := os.OpenFile(toFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	io.Copy(f, file)
-	return nil
+	defer dst.Close()
+
+	_, err = io.CopyBuffer(onlyWriter{dst}, src, buf)
+	return err
 }
 
 // StartSession starts session and load old session data info this controller.

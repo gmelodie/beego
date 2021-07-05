@@ -38,13 +38,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/beego/beego/v2/server/web/session"
-
 	"github.com/bradfitz/gomemcache/memcache"
+
+	"github.com/beego/beego/v2/server/web/session"
 )
 
-var mempder = &MemProvider{}
-var client *memcache.Client
+var (
+	mempder = &MemProvider{}
+	client  *memcache.Client
+)
 
 // SessionStore memcache session store
 type SessionStore struct {

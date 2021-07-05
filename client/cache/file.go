@@ -67,7 +67,6 @@ func NewFileCache() Cache {
 // StartAndGC starts gc for file cache.
 // config must be in the format {CachePath:"/cache","FileSuffix":".bin","DirectoryLevel":"2","EmbedExpiry":"0"}
 func (fc *FileCache) StartAndGC(config string) error {
-
 	cfg := make(map[string]string)
 	err := json.Unmarshal([]byte(config), &cfg)
 	if err != nil {
@@ -140,7 +139,7 @@ func (fc *FileCache) getCacheFileName(key string) (string, error) {
 		return "", err
 	}
 	if !ok {
-		err  = os.MkdirAll(cachePath, os.ModePerm)
+		err = os.MkdirAll(cachePath, os.ModePerm)
 		if err != nil {
 			return "", berror.Wrapf(err, CreateFileCacheDirFailed,
 				"could not create the directory: %s", cachePath)
@@ -299,8 +298,8 @@ func FileGetContents(filename string) ([]byte, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, berror.Wrapf(err, ReadFileCacheContentFailed,
-			"could not read the data from the file: %s, " +
-			"please confirm that file exist and Beego has the permission to read the content.", filename)
+			"could not read the data from the file: %s, "+
+				"please confirm that file exist and Beego has the permission to read the content.", filename)
 	}
 	return data, nil
 }

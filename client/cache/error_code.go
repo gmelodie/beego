@@ -123,14 +123,6 @@ var InvalidSsdbCacheValue = berror.DefineCode(4002022, moduleName, "InvalidSsdbC
 SSDB cache only accept string value. Please check your input.
 `)
 
-
-
-
-
-
-
-
-
 var DeleteFileCacheItemFailed = berror.DefineCode(5002001, moduleName, "DeleteFileCacheItemFailed", `
 Beego try to delete file cache item failed. 
 Please check whether Beego generated file correctly. 
@@ -178,5 +170,7 @@ The reponse from SSDB server is invalid.
 Usually it indicates something wrong on server side.
 `)
 
-var ErrKeyExpired = berror.Error(KeyExpired, "the key is expired")
-var ErrKeyNotExist = berror.Error(KeyNotExist, "the key isn't exist")
+var (
+	ErrKeyExpired  = berror.Error(KeyExpired, "the key is expired")
+	ErrKeyNotExist = berror.Error(KeyNotExist, "the key isn't exist")
+)

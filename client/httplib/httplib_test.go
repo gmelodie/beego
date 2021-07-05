@@ -63,7 +63,6 @@ func TestDoRequest(t *testing.T) {
 	if elapsedTime < delayedTime {
 		t.Errorf("Not enough retries. Took %dms. Delay was meant to take %dms", elapsedTime, delayedTime)
 	}
-
 }
 
 func TestGet(t *testing.T) {
@@ -248,7 +247,6 @@ func TestToJson(t *testing.T) {
 			t.Fatal("response is not valid ip")
 		}
 	}
-
 }
 
 func TestToFile(t *testing.T) {
@@ -351,7 +349,7 @@ func TestNewBeegoRequest(t *testing.T) {
 	assert.NotNil(t, req)
 }
 
-func TestBeegoHTTPRequest_SetProtocolVersion(t *testing.T) {
+func TestBeegoHTTPRequestSetProtocolVersion(t *testing.T) {
 	req := NewBeegoRequest("http://beego.me", "GET")
 	req.SetProtocolVersion("HTTP/3.10")
 	assert.Equal(t, "HTTP/3.10", req.req.Proto)
@@ -376,21 +374,21 @@ func TestPut(t *testing.T) {
 	assert.Equal(t, "PUT", req.req.Method)
 }
 
-func TestBeegoHTTPRequest_Header(t *testing.T) {
+func TestBeegoHTTPRequestHeader(t *testing.T) {
 	req := Post("http://beego.me")
 	key, value := "test-header", "test-header-value"
 	req.Header(key, value)
 	assert.Equal(t, value, req.req.Header.Get(key))
 }
 
-func TestBeegoHTTPRequest_SetHost(t *testing.T) {
+func TestBeegoHTTPRequestSetHost(t *testing.T) {
 	req := Post("http://beego.me")
 	host := "test-hose"
 	req.SetHost(host)
 	assert.Equal(t, host, req.req.Host)
 }
 
-func TestBeegoHTTPRequest_Param(t *testing.T) {
+func TestBeegoHTTPRequestParam(t *testing.T) {
 	req := Post("http://beego.me")
 	key, value := "test-param", "test-param-value"
 	req.Param(key, value)
@@ -401,7 +399,7 @@ func TestBeegoHTTPRequest_Param(t *testing.T) {
 	assert.Equal(t, value1, req.params[key][1])
 }
 
-func TestBeegoHTTPRequest_Body(t *testing.T) {
+func TestBeegoHTTPRequestBody(t *testing.T) {
 	req := Post("http://beego.me")
 	body := `hello, world`
 	req.Body([]byte(body))
@@ -409,7 +407,7 @@ func TestBeegoHTTPRequest_Body(t *testing.T) {
 	assert.NotNil(t, req.req.GetBody)
 	assert.NotNil(t, req.req.Body)
 
-	body = "hhhh, i am test"
+	body = "hhhh, I am test"
 	req.Body(body)
 	assert.Equal(t, int64(len(body)), req.req.ContentLength)
 	assert.NotNil(t, req.req.GetBody)
@@ -423,7 +421,7 @@ type user struct {
 	Name string `xml:"name"`
 }
 
-func TestBeegoHTTPRequest_XMLBody(t *testing.T) {
+func TestBeegoHTTPRequestXMLBody(t *testing.T) {
 	req := Post("http://beego.me")
 	body := &user{
 		Name: "Tom",
@@ -432,4 +430,8 @@ func TestBeegoHTTPRequest_XMLBody(t *testing.T) {
 	assert.True(t, req.req.ContentLength > 0)
 	assert.Nil(t, err)
 	assert.NotNil(t, req.req.GetBody)
+}
+
+// TODO
+func TestBeegoHTTPRequestResponseForValue(t *testing.T) {
 }
